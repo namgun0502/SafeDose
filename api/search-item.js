@@ -1,4 +1,10 @@
-// api/search-item.js - Vercel Serverless Function (AI 약물/영양제 정밀 검색)
+// api/search-item.js - Vercel Serverless Function (AI 약물/영양제 정밀 검색 - 다중 모델 지원)
+
+const GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro'
+];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -36,32 +42,44 @@ JSON 응답 형식 규격:
   "description": "한 줄 요약 설명"
 }`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json"
-        }
-      })
-    });
+    let parsedData = null;
+    let lastError = null;
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Gemini API 호출 실패');
+    for (const modelName of GEMINI_MODELS) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            parsedData = JSON.parse(rawText);
+            break;
+          }
+        } else {
+          const errData = await response.json();
+          lastError = errData.error?.message;
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
     }
 
-    const data = await response.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    const parsedData = JSON.parse(rawText);
-    return res.status(200).json(parsedData);
+    if (parsedData) {
+      return res.status(200).json(parsedData);
+    } else {
+      return res.status(500).json({ error: `약물 정밀 검색에 실패했습니다. (${lastError || ''})` });
+    }
 
   } catch (error) {
     console.error('Search API Error:', error);

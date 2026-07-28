@@ -1,4 +1,10 @@
-// api/analyze-image.js - Vercel Serverless Function (약 라벨/상자 사진 AI 인식)
+// api/analyze-image.js - Vercel Serverless Function (약 라벨 사진 AI 인식 - 비전 지원 다중 모델)
+
+const GEMINI_VISION_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro'
+];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,7 +22,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '이미지 데이터가 전달되지 않았습니다.' });
     }
 
-    // data:image/png;base64, 접두어가 들어있을 경우 순수 base64 스트링만 추출
     const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
     const finalMimeType = mimeType || 'image/jpeg';
 
@@ -25,7 +30,7 @@ export default async function handler(req, res) {
 
 응답 예시 format:
 {
-  "summary": "이미지 분석 요약 (예: 타이레놀 500mg, 센트룸 종합비타민 2종 감지됨)",
+  "summary": "이미지 분석 요약",
   "recognizedItems": [
     {
       "id": "scanned_1",
@@ -45,40 +50,54 @@ export default async function handler(req, res) {
   ]
 }`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: finalMimeType,
-                data: cleanBase64
-              }
-            }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json"
-        }
-      })
-    });
+    let parsedData = null;
+    let lastError = null;
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Gemini Vision API 호출 실패');
+    for (const modelName of GEMINI_VISION_MODELS) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    mimeType: finalMimeType,
+                    data: cleanBase64
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            parsedData = JSON.parse(rawText);
+            break;
+          }
+        } else {
+          const errData = await response.json();
+          lastError = errData.error?.message;
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
     }
 
-    const data = await response.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    const parsedData = JSON.parse(rawText);
-
-    return res.status(200).json(parsedData);
+    if (parsedData) {
+      return res.status(200).json(parsedData);
+    } else {
+      return res.status(500).json({ error: `이미지 인식 분석에 실패했습니다. (${lastError || ''})` });
+    }
 
   } catch (error) {
     console.error('Image Analysis API Error:', error);
