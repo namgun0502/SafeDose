@@ -2,9 +2,7 @@
 
 const GEMINI_MODELS = [
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash'
 ];
 
 export default async function handler(req, res) {
@@ -60,16 +58,12 @@ JSON 응답 형식 규격:
           })
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            parsedData = JSON.parse(rawText);
-            break;
-          }
+        const data = await response.json();
+        if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
+          break;
         } else {
-          const errData = await response.json();
-          lastError = errData.error?.message;
+          lastError = data.error?.message;
         }
       } catch (err) {
         lastError = err.message;

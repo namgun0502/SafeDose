@@ -1,10 +1,8 @@
 // api/analyze-image.js - Vercel Serverless Function (약 라벨 사진 AI 인식)
 
-const GEMINI_VISION_MODELS = [
+const GEMINI_MODELS = [
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash'
 ];
 
 export default async function handler(req, res) {
@@ -54,7 +52,7 @@ export default async function handler(req, res) {
     let parsedData = null;
     let lastError = null;
 
-    for (const modelName of GEMINI_VISION_MODELS) {
+    for (const modelName of GEMINI_MODELS) {
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
           method: 'POST',
@@ -78,16 +76,12 @@ export default async function handler(req, res) {
           })
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            parsedData = JSON.parse(rawText);
-            break;
-          }
+        const data = await response.json();
+        if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
+          break;
         } else {
-          const errData = await response.json();
-          lastError = errData.error?.message;
+          lastError = data.error?.message;
         }
       } catch (err) {
         lastError = err.message;

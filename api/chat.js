@@ -1,9 +1,8 @@
-// api/chat.js - Vercel Serverless Function (순수 AI 100% 약사 상담)
+// api/chat.js - Vercel Serverless Function (Gemini 정식 규격 100% AI 약사 상담)
 
 const GEMINI_MODELS = [
-  'gemini-1.5-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash'
 ];
 
 export default async function handler(req, res) {
@@ -58,7 +57,6 @@ ${cabinetSummary}
     let replyText = null;
     let lastError = null;
 
-    // 순수 Gemini AI 모델 다중 순차 호출
     for (const modelName of GEMINI_MODELS) {
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
@@ -73,13 +71,13 @@ ${cabinetSummary}
           })
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (replyText) break;
+        const data = await response.json();
+
+        if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          replyText = data.candidates[0].content.parts[0].text;
+          break;
         } else {
-          const errData = await response.json();
-          lastError = errData.error?.message || response.statusText;
+          lastError = data.error?.message || response.statusText;
         }
       } catch (err) {
         lastError = err.message;
@@ -90,7 +88,7 @@ ${cabinetSummary}
       return res.status(200).json({ reply: replyText });
     } else {
       return res.status(500).json({ 
-        error: `AI 응답 생성 실패: ${lastError || 'Gemini API 호출 중 오류가 발생했습니다. API 키 및 Vercel 재배포(Redeploy) 상태를 확인해 주세요.'}` 
+        error: `AI 응답 실패: ${lastError || 'Gemini API 키 사용량 초과 또는 키 오류입니다. 구글 AI 스튜디오에서 새 키를 생성해 주세요.'}` 
       });
     }
 
