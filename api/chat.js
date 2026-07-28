@@ -55,7 +55,7 @@ ${cabinetSummary}
       parts: [{ text: `${systemPrompt}\n\n[사용자 질문]\n${message}` }]
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -71,6 +71,9 @@ ${cabinetSummary}
 
     if (!response.ok) {
       const errorData = await response.json();
+      if (response.status === 429 || errorData.error?.message?.includes('Quota exceeded')) {
+        return res.status(429).json({ error: '현재 무료 AI 호출 사용량이 초과되었습니다. 약 1분 후 다시 시도해 주세요!' });
+      }
       throw new Error(errorData.error?.message || 'Gemini API 호출 실패');
     }
 
