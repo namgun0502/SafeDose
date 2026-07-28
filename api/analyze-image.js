@@ -1,8 +1,9 @@
-// api/analyze-image.js - Vercel Serverless Function (약 라벨 사진 AI 인식 - 비전 지원 다중 모델)
+// api/analyze-image.js - Vercel Serverless Function (약 라벨 사진 AI 인식)
 
 const GEMINI_VISION_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
   'gemini-1.5-pro'
 ];
 

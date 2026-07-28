@@ -1,8 +1,9 @@
-// api/search-item.js - Vercel Serverless Function (AI 약물/영양제 정밀 검색 - 다중 모델 지원)
+// api/search-item.js - Vercel Serverless Function (AI 약물/영양제 정밀 검색)
 
 const GEMINI_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
   'gemini-1.5-pro'
 ];
 

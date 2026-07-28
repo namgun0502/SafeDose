@@ -1,10 +1,10 @@
-// api/chat.js - Vercel Serverless Function (AI 약사 상담 - 다중 Gemini 모델 폴백 지원)
+// api/chat.js - Vercel Serverless Function (AI 약사 상담 - 검증된 Gemini 모델 폴백)
 
 const GEMINI_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
-  'gemini-1.5-pro',
-  'gemini-1.0-pro'
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro'
 ];
 
 export default async function handler(req, res) {
@@ -63,7 +63,6 @@ ${cabinetSummary}
     let replyText = null;
     let lastError = null;
 
-    // 사용 가능한 모델 순차 시도 (Fallback)
     for (const modelName of GEMINI_MODELS) {
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
@@ -81,7 +80,7 @@ ${cabinetSummary}
         if (response.ok) {
           const data = await response.json();
           replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (replyText) break; // 성공 시 루프 탈출
+          if (replyText) break;
         } else {
           const errData = await response.json();
           lastError = errData.error?.message || response.statusText;
@@ -94,7 +93,7 @@ ${cabinetSummary}
     if (replyText) {
       return res.status(200).json({ reply: replyText });
     } else {
-      return res.status(429).json({ error: `현재 모든 Gemini 모델 호출 사용량이 초과되었습니다. 잠시 후 다시 시도해 주세요! (${lastError || ''})` });
+      return res.status(429).json({ error: `현재 구글 Gemini API 사용량 제한(Quota Limit)에 도달했습니다. 약 1분 후 다시 시도해 주세요!` });
     }
 
   } catch (error) {
